@@ -1,6 +1,9 @@
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 
 public class Main {
     public static void main(String[] args) {
@@ -15,6 +18,25 @@ public class Main {
             serverSocket.setReuseAddress(true);
             // Wait for connection from client.
             clientSocket = serverSocket.accept();
+
+            InputStream inputStream = clientSocket.getInputStream();
+            OutputStream outputStream = clientSocket.getOutputStream();
+
+            byte[] requestBuffer = new byte[1024];
+            int bytesRead = inputStream.read(requestBuffer);
+
+            // Hardcoded response values
+            int messageSize = 4; // Placeholder
+            int correlationId = 7; // Hardcoded
+
+            // Construct the response
+            ByteBuffer buffer = ByteBuffer.allocate(8);
+            buffer.putInt(messageSize);
+            buffer.putInt(correlationId);
+
+            // Send the response
+            outputStream.write(buffer.array());
+            outputStream.flush();
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
         } finally {
