@@ -22,12 +22,14 @@ public class Main {
             InputStream inputStream = clientSocket.getInputStream();
             OutputStream outputStream = clientSocket.getOutputStream();
 
-            byte[] requestBuffer = new byte[1024];
-            int bytesRead = inputStream.read(requestBuffer);
+            byte[] requestHeader = new byte[12];
+            int bytesRead = inputStream.read(requestHeader);
 
-            // Hardcoded response values
-            int messageSize = 4; // Placeholder
-            int correlationId = 7; // Hardcoded
+            ByteBuffer headerBuffer = ByteBuffer.wrap(requestHeader);
+            int messageSize = headerBuffer.getInt();
+            short apiKey = headerBuffer.getShort(); // The API key for the request (2 bytes)
+            short apiVersion = headerBuffer.getShort(); // The version of the API for the request (2 bytes)
+            int correlationId = headerBuffer.getInt(); // A unique identifier for the request (4 bytes)
 
             // Construct the response
             ByteBuffer buffer = ByteBuffer.allocate(8);
