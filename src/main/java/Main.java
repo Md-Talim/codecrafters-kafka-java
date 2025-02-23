@@ -30,11 +30,13 @@ public class Main {
             short apiKey = requestHeader.getShort(); // The API key for the request (2 bytes)
             short apiVersion = requestHeader.getShort(); // The version of the API for the request (2 bytes)
             int correlationId = requestHeader.getInt(); // A unique identifier for the request (4 bytes)
+            short errorCode = 35;
 
             // Construct the response
-            ByteBuffer response = ByteBuffer.allocate(8);
+            ByteBuffer response = ByteBuffer.allocate(10);
             response.putInt(messageSize);
             response.putInt(correlationId);
+            response.putShort(errorCode);
 
             // Send the response
             outputStream.write(response.array());
