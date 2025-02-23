@@ -22,22 +22,22 @@ public class Main {
             InputStream inputStream = clientSocket.getInputStream();
             OutputStream outputStream = clientSocket.getOutputStream();
 
-            byte[] requestHeader = new byte[12];
-            int bytesRead = inputStream.read(requestHeader);
+            byte[] requestBuffer = new byte[12];
+            int bytesRead = inputStream.read(requestBuffer);
 
-            ByteBuffer headerBuffer = ByteBuffer.wrap(requestHeader);
-            int messageSize = headerBuffer.getInt();
-            short apiKey = headerBuffer.getShort(); // The API key for the request (2 bytes)
-            short apiVersion = headerBuffer.getShort(); // The version of the API for the request (2 bytes)
-            int correlationId = headerBuffer.getInt(); // A unique identifier for the request (4 bytes)
+            ByteBuffer requestHeader = ByteBuffer.wrap(requestBuffer);
+            int messageSize = requestHeader.getInt();
+            short apiKey = requestHeader.getShort(); // The API key for the request (2 bytes)
+            short apiVersion = requestHeader.getShort(); // The version of the API for the request (2 bytes)
+            int correlationId = requestHeader.getInt(); // A unique identifier for the request (4 bytes)
 
             // Construct the response
-            ByteBuffer buffer = ByteBuffer.allocate(8);
-            buffer.putInt(messageSize);
-            buffer.putInt(correlationId);
+            ByteBuffer response = ByteBuffer.allocate(8);
+            response.putInt(messageSize);
+            response.putInt(correlationId);
 
             // Send the response
-            outputStream.write(buffer.array());
+            outputStream.write(response.array());
             outputStream.flush();
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
