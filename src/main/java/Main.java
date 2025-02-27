@@ -1,45 +1,57 @@
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class Main {
     public static void main(String[] args) {
         ServerSocket serverSocket = null;
         Socket clientSocket = null;
         int port = 9092;
+
         try {
             serverSocket = new ServerSocket(port);
-            // Since the tester restarts your program quite often, setting
-            // SO_REUSEADDR ensures that we don't run into 'Address already in use'
-            // errors
             serverSocket.setReuseAddress(true);
-            // Wait for connection from client.
-            clientSocket = serverSocket.accept();
+            clientSocket = serverSocket.accept(); // Wait for connection from client.
 
             InputStream inputStream = clientSocket.getInputStream();
             OutputStream outputStream = clientSocket.getOutputStream();
 
-            byte[] requestBuffer = new byte[12];
-            int bytesRead = inputStream.read(requestBuffer);
+            inputStream.readNBytes(4); // message_size
+            inputStream.readNBytes(2); // api key
+            byte[] apiVersionBytes = inputStream.readNBytes(2);
+            short apiVersion = ByteBuffer.wrap(apiVersionBytes).getShort();
+            byte[] correlationId = inputStream.readNBytes(4);
 
-            ByteBuffer requestHeader = ByteBuffer.wrap(requestBuffer);
-            int messageSize = requestHeader.getInt();
-            short apiKey = requestHeader.getShort(); // The API key for the request (2 bytes)
-            short apiVersion = requestHeader.getShort(); // The version of the API for the request (2 bytes)
-            int correlationId = requestHeader.getInt(); // A unique identifier for the request (4 bytes)
-            short errorCode = 35;
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            bos.write(correlationId);
 
-            // Construct the response
-            ByteBuffer response = ByteBuffer.allocate(10);
-            response.putInt(messageSize);
-            response.putInt(correlationId);
-            response.putShort(errorCode);
+            if (apiVersion < 0 || apiVersion > 4) {
+                bos.write(new byte[] { 0, 35 }); // error_code = 35
+            } else {
+                bos.write(new byte[] { 0, 0 }); // error_code = 0
+                bos.write(2);
+                bos.write(new byte[] { 0, 18 }); // apiKey
+                bos.write(new byte[] { 0, 3 }); // min version
+                bos.write(new byte[] { 0, 4 }); // max version
+                bos.write(0); // tagged fields
+                bos.write(new byte[] { 0, 0, 0, 0 }); // throttle time
+                bos.write(0); // tagged fields
+            }
 
-            // Send the response
-            outputStream.write(response.array());
+            int size = bos.size();
+            byte[] sizeBytes = ByteBuffer.allocate(4).putInt(size).array();
+            byte[] response = bos.toByteArray();
+
+            System.out.println(Arrays.toString(sizeBytes));
+            System.out.println(Arrays.toString(response));
+
+            outputStream.write(sizeBytes);
+            outputStream.write(response);
             outputStream.flush();
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
