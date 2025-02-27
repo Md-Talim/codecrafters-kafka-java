@@ -1,6 +1,6 @@
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -9,7 +9,7 @@ import java.util.Arrays;
 
 public class Main {
     public static void main(String[] args) {
-        ServerSocket serverSocket = null;
+        ServerSocket serverSocket;
         Socket clientSocket = null;
         int port = 9092;
 
@@ -18,41 +18,12 @@ public class Main {
             serverSocket.setReuseAddress(true);
             clientSocket = serverSocket.accept(); // Wait for connection from client.
 
-            InputStream inputStream = clientSocket.getInputStream();
+            DataInputStream inputStream = new DataInputStream(clientSocket.getInputStream());
             OutputStream outputStream = clientSocket.getOutputStream();
 
-            inputStream.readNBytes(4); // message_size
-            inputStream.readNBytes(2); // api key
-            byte[] apiVersionBytes = inputStream.readNBytes(2);
-            short apiVersion = ByteBuffer.wrap(apiVersionBytes).getShort();
-            byte[] correlationId = inputStream.readNBytes(4);
-
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            bos.write(correlationId);
-
-            if (apiVersion < 0 || apiVersion > 4) {
-                bos.write(new byte[] { 0, 35 }); // error_code = 35
-            } else {
-                bos.write(new byte[] { 0, 0 }); // error_code = 0
-                bos.write(2);
-                bos.write(new byte[] { 0, 18 }); // apiKey
-                bos.write(new byte[] { 0, 3 }); // min version
-                bos.write(new byte[] { 0, 4 }); // max version
-                bos.write(0); // tagged fields
-                bos.write(new byte[] { 0, 0, 0, 0 }); // throttle time
-                bos.write(0); // tagged fields
+            while (true) {
+                handleRequest(inputStream, outputStream);
             }
-
-            int size = bos.size();
-            byte[] sizeBytes = ByteBuffer.allocate(4).putInt(size).array();
-            byte[] response = bos.toByteArray();
-
-            System.out.println(Arrays.toString(sizeBytes));
-            System.out.println(Arrays.toString(response));
-
-            outputStream.write(sizeBytes);
-            outputStream.write(response);
-            outputStream.flush();
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
         } finally {
@@ -64,5 +35,42 @@ public class Main {
                 System.out.println("IOException: " + e.getMessage());
             }
         }
+    }
+
+    private static void handleRequest(DataInputStream inputStream, OutputStream outputStream) throws IOException {
+        int messageSize = inputStream.readInt();
+        byte[] apiKey = inputStream.readNBytes(2);
+        short apiVersion = inputStream.readShort();
+        byte[] correlationId = inputStream.readNBytes(4);
+        byte[] remainingBytes = new byte[messageSize - 8];
+
+        inputStream.readFully(remainingBytes);
+
+        ByteArrayOutputStream responseHeader = new ByteArrayOutputStream();
+        responseHeader.write(correlationId);
+
+        responseHeader.write(getErrorCode(apiVersion));
+        responseHeader.write(2);
+        responseHeader.write(apiKey);
+        responseHeader.write(new byte[] { 0, 0 }); // min version
+        responseHeader.write(new byte[] { 0, 4 }); // max version
+        responseHeader.write(0); // tagged fields
+        responseHeader.write(new byte[] { 0, 0, 0, 0 }); // throttle time
+        responseHeader.write(0); // tagged fields
+
+        int responseSize = responseHeader.toByteArray().length;
+        byte[] messageLength = ByteBuffer.allocate(4).putInt(responseSize).array();
+        byte[] response = responseHeader.toByteArray();
+
+        System.out.println(Arrays.toString(messageLength));
+        System.out.println(Arrays.toString(response));
+
+        outputStream.write(messageLength);
+        outputStream.write(response);
+        outputStream.flush();
+    }
+
+    private static byte[] getErrorCode(short apiVersion) {
+        return (apiVersion < 0 || apiVersion > 4) ? new byte[] { 0, 35 } : new byte[] { 0, 0 };
     }
 }
