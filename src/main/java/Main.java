@@ -9,31 +9,29 @@ import java.util.Arrays;
 
 public class Main {
     public static void main(String[] args) {
-        ServerSocket serverSocket;
-        Socket clientSocket = null;
         int port = 9092;
 
-        try {
-            serverSocket = new ServerSocket(port);
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
             serverSocket.setReuseAddress(true);
-            clientSocket = serverSocket.accept(); // Wait for connection from client.
 
-            DataInputStream inputStream = new DataInputStream(clientSocket.getInputStream());
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                new Thread(() -> handleClient(clientSocket)).start();
+            }
+        } catch (IOException e) {
+            System.out.println("IOException: " + e.getMessage());
+        }
+    }
+
+    private static void handleClient(Socket clientSocket) {
+        try (DataInputStream inputStream = new DataInputStream(clientSocket.getInputStream())) {
             OutputStream outputStream = clientSocket.getOutputStream();
 
             while (true) {
                 handleRequest(inputStream, outputStream);
             }
         } catch (IOException e) {
-            System.out.println("IOException: " + e.getMessage());
-        } finally {
-            try {
-                if (clientSocket != null) {
-                    clientSocket.close();
-                }
-            } catch (IOException e) {
-                System.out.println("IOException: " + e.getMessage());
-            }
+            System.out.println("IOException while handling client: " + e.getMessage());
         }
     }
 
