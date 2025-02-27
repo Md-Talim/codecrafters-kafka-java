@@ -1,35 +1,44 @@
+# Kafka Broker Implementation in Java
+
 [![progress-banner](https://backend.codecrafters.io/progress/kafka/d0cd83dd-f010-431f-8a68-0128ce23fb65)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
-This is a starting point for Java solutions to the
-["Build Your Own Kafka" Challenge](https://codecrafters.io/challenges/kafka).
+This project is a Java-based implementation of a Kafka broker, designed as part of the [Codecrafters Kafka Challenge](https://codecrafters.io/challenges/kafka/overview). The goal is to create a functional Kafka broker that can handle client connections, process requests, and manage data distribution across a cluster.
 
-In this challenge, you'll build a toy Kafka clone that's capable of accepting
-and responding to APIVersions & Fetch API requests. You'll also learn about
-encoding and decoding messages using the Kafka wire protocol. You'll also learn
-about handling the network protocol, event loops, TCP sockets and more.
+## Current Progress
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+#### Basic Server Setup
+- Implemented a basic server that listens on port 9092.
+- Accepts client connections and handles requests in separate **threads**.
 
-# Passing the first stage
+#### `APIVersions` Request Handling
+- Implemented the response body for the `APIVersions` (v4) request.
+- Validates the **message length** and **correlation ID** in the response.
+- Ensures the error code in the response body is `0` (No Error).
+- Includes at least one entry for the API key `18` (API_VERSIONS) with a `MaxVersion` of at least 4.
 
-The entry point for your Kafka implementation is in `src/main/java/Main.java`.
-Study and uncomment the relevant code, and push your changes to pass the first
-stage:
+#### Handling Multiple Sequential Requests
+- Modified the server to handle multiple sequential requests from the same client.
+- Ensures that the server continues to listen for and process additional requests from the same connection.
+
+#### Handling Concurrent Requests from Multiple Clients
+- Added support for handling concurrent requests from multiple clients.
+- Uses threads to handle each client connection independently, allowing the server to process requests from multiple clients concurrently.
+
+## How to Run
+
+To run the server, execute the following command:
 
 ```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
+$ ./your_program.sh
 ```
 
-That's all!
+The server will start listening on port 9092 and will be ready to accept client connections.
 
-# Stage 2 & beyond
+## Testing
 
-Note: This section is for stages 2 and beyond.
+The server has been tested to handle `APIVersions` (v4) requests from multiple clients. Each response is validated to ensure:
 
-1. Ensure you have `mvn` installed locally
-1. Run `./your_program.sh` to run your Kafka broker, which is implemented in
-   `src/main/java/Main.java`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+- The first 4 bytes of the response (the "message length") are valid.
+- The correlation ID in the response header matches the correlation ID in the request header.
+- The error code in the response body is `0` (No Error).
+- The response body contains at least one entry for the API key `18` (API_VERSIONS) with a `MaxVersion` of at least `4`.
