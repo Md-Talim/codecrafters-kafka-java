@@ -5,7 +5,6 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 public class Main {
     public static void main(String[] args) {
@@ -44,31 +43,52 @@ public class Main {
 
         inputStream.readFully(remainingBytes);
 
+        if (apiVersion < 0 || apiVersion > 4) {
+            sendErrorResponse(outputStream, correlationId);
+        } else {
+            sendAPIVersionsResponse(outputStream, correlationId);
+        }
+    }
+
+    private static void sendAPIVersionsResponse(OutputStream outputStream, byte[] correlationId) throws IOException {
         ByteArrayOutputStream responseHeader = new ByteArrayOutputStream();
         responseHeader.write(correlationId);
 
-        responseHeader.write(getErrorCode(apiVersion));
-        responseHeader.write(2);
-        responseHeader.write(apiKey);
+        responseHeader.write(new byte[] { 0, 0 }); // NO error
+        responseHeader.write(3);
+
+        // Entry for APIVersions (API key 18)
+        responseHeader.write(new byte[] { 0, 18 }); // apiKey
         responseHeader.write(new byte[] { 0, 0 }); // min version
         responseHeader.write(new byte[] { 0, 4 }); // max version
-        responseHeader.write(0); // tagged fields
-        responseHeader.write(new byte[] { 0, 0, 0, 0 }); // throttle time
-        responseHeader.write(0); // tagged fields
+        responseHeader.write(0);
 
-        int responseSize = responseHeader.toByteArray().length;
-        byte[] messageLength = ByteBuffer.allocate(4).putInt(responseSize).array();
+        // Entry for DescribeTopicPartitions (API key 75)
+        responseHeader.write(new byte[] { 0, 75 }); // apiKey
+        responseHeader.write(new byte[] { 0, 0 }); // min version
+        responseHeader.write(new byte[] { 0, 0 }); // max version
+        responseHeader.write(0);
+
+        responseHeader.write(new byte[] { 0, 0, 0, 0 });
+        responseHeader.write(0);
+
+        byte[] messageLength = ByteBuffer.allocate(4).putInt(responseHeader.size()).array();
         byte[] response = responseHeader.toByteArray();
-
-        System.out.println(Arrays.toString(messageLength));
-        System.out.println(Arrays.toString(response));
 
         outputStream.write(messageLength);
         outputStream.write(response);
         outputStream.flush();
     }
 
-    private static byte[] getErrorCode(short apiVersion) {
-        return (apiVersion < 0 || apiVersion > 4) ? new byte[] { 0, 35 } : new byte[] { 0, 0 };
+    private static void sendErrorResponse(OutputStream outputStream, byte[] correlationId) throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        bos.write(correlationId);
+        bos.write(new byte[] { 0, 35 });
+
+        byte[] messageLength = ByteBuffer.allocate(4).putInt(bos.size()).array();
+        byte[] response = bos.toByteArray();
+        outputStream.write(messageLength);
+        outputStream.write(response);
+        outputStream.flush();
     }
 }
